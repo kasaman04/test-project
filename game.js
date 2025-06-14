@@ -2,8 +2,10 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
 
+let gameState = 'start';
 let gameRunning = true;
 let score = 0;
+let highScore = localStorage.getItem('highScore') || 0;
 
 const player = {
     x: 50,
@@ -51,33 +53,53 @@ const keys = {
 };
 
 document.addEventListener('keydown', (e) => {
-    switch(e.code) {
-        case 'ArrowLeft':
-            keys.left = true;
-            break;
-        case 'ArrowRight':
-            keys.right = true;
-            break;
-        case 'ArrowUp':
-        case 'Space':
-            keys.space = true;
+    if (gameState === 'start') {
+        if (e.code === 'Space' || e.code === 'Enter') {
+            startGame();
             e.preventDefault();
-            break;
+        }
+        return;
+    }
+    
+    if (gameState === 'gameOver') {
+        if (e.code === 'Space' || e.code === 'Enter') {
+            restartGame();
+            e.preventDefault();
+        }
+        return;
+    }
+    
+    if (gameState === 'playing') {
+        switch(e.code) {
+            case 'ArrowLeft':
+                keys.left = true;
+                break;
+            case 'ArrowRight':
+                keys.right = true;
+                break;
+            case 'ArrowUp':
+            case 'Space':
+                keys.space = true;
+                e.preventDefault();
+                break;
+        }
     }
 });
 
 document.addEventListener('keyup', (e) => {
-    switch(e.code) {
-        case 'ArrowLeft':
-            keys.left = false;
-            break;
-        case 'ArrowRight':
-            keys.right = false;
-            break;
-        case 'ArrowUp':
-        case 'Space':
-            keys.space = false;
-            break;
+    if (gameState === 'playing') {
+        switch(e.code) {
+            case 'ArrowLeft':
+                keys.left = false;
+                break;
+            case 'ArrowRight':
+                keys.right = false;
+                break;
+            case 'ArrowUp':
+            case 'Space':
+                keys.space = false;
+                break;
+        }
     }
 });
 
@@ -181,6 +203,39 @@ function resetPlayer() {
     player.velocityX = 0;
     player.velocityY = 0;
     score = Math.max(0, score - 100);
+    
+    if (score <= 0) {
+        gameOver();
+    }
+}
+
+function startGame() {
+    gameState = 'playing';
+    score = 0;
+    player.x = 50;
+    player.y = 300;
+    player.velocityX = 0;
+    player.velocityY = 0;
+    
+    enemies.forEach((enemy, index) => {
+        enemy.x = [250, 400, 550][index];
+    });
+    
+    coins.forEach(coin => {
+        coin.collected = false;
+    });
+}
+
+function gameOver() {
+    gameState = 'gameOver';
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+    }
+}
+
+function restartGame() {
+    startGame();
 }
 
 function drawPlayer() {
@@ -252,23 +307,81 @@ function drawBackground() {
     }
 }
 
+function drawStartScreen() {
+    drawBackground();
+    
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 48px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('MARIO GAME', canvas.width / 2, canvas.height / 2 - 100);
+    
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '24px Arial';
+    ctx.fillText('矢印キー: 移動', canvas.width / 2, canvas.height / 2 - 30);
+    ctx.fillText('スペース: ジャンプ', canvas.width / 2, canvas.height / 2);
+    
+    ctx.fillStyle = '#00FF00';
+    ctx.font = 'bold 28px Arial';
+    ctx.fillText('スペースキーでスタート', canvas.width / 2, canvas.height / 2 + 60);
+    
+    if (highScore > 0) {
+        ctx.fillStyle = '#FFD700';
+        ctx.font = '20px Arial';
+        ctx.fillText(`ハイスコア: ${highScore}`, canvas.width / 2, canvas.height / 2 + 100);
+    }
+}
+
+function drawGameOverScreen() {
+    drawBackground();
+    
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#FF0000';
+    ctx.font = 'bold 48px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 60);
+    
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '24px Arial';
+    ctx.fillText(`スコア: ${score}`, canvas.width / 2, canvas.height / 2 - 10);
+    
+    if (score >= highScore) {
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText('新記録！', canvas.width / 2, canvas.height / 2 + 20);
+    }
+    
+    ctx.fillStyle = '#00FF00';
+    ctx.font = 'bold 28px Arial';
+    ctx.fillText('スペースキーでリスタート', canvas.width / 2, canvas.height / 2 + 70);
+}
+
 function gameLoop() {
     if (!gameRunning) return;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    drawBackground();
-    drawPlatforms();
-    drawCoins();
-    drawEnemies();
-    drawPlayer();
-    
-    updatePlayer();
-    checkPlatformCollisions();
-    updateEnemies();
-    updateCoins();
-    
-    scoreElement.textContent = score;
+    if (gameState === 'start') {
+        drawStartScreen();
+    } else if (gameState === 'playing') {
+        drawBackground();
+        drawPlatforms();
+        drawCoins();
+        drawEnemies();
+        drawPlayer();
+        
+        updatePlayer();
+        checkPlatformCollisions();
+        updateEnemies();
+        updateCoins();
+        
+        scoreElement.textContent = score;
+    } else if (gameState === 'gameOver') {
+        drawGameOverScreen();
+    }
     
     requestAnimationFrame(gameLoop);
 }
