@@ -2,8 +2,10 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
 
+let gameState = 'start';
 let gameRunning = true;
 let score = 0;
+let highScore = localStorage.getItem('highScore') || 0;
 
 const player = {
     x: 50,
@@ -51,33 +53,53 @@ const keys = {
 };
 
 document.addEventListener('keydown', (e) => {
-    switch(e.code) {
-        case 'ArrowLeft':
-            keys.left = true;
-            break;
-        case 'ArrowRight':
-            keys.right = true;
-            break;
-        case 'ArrowUp':
-        case 'Space':
-            keys.space = true;
+    if (gameState === 'start') {
+        if (e.code === 'Space' || e.code === 'Enter') {
+            startGame();
             e.preventDefault();
-            break;
+        }
+        return;
+    }
+    
+    if (gameState === 'gameOver') {
+        if (e.code === 'Space' || e.code === 'Enter') {
+            restartGame();
+            e.preventDefault();
+        }
+        return;
+    }
+    
+    if (gameState === 'playing') {
+        switch(e.code) {
+            case 'ArrowLeft':
+                keys.left = true;
+                break;
+            case 'ArrowRight':
+                keys.right = true;
+                break;
+            case 'ArrowUp':
+            case 'Space':
+                keys.space = true;
+                e.preventDefault();
+                break;
+        }
     }
 });
 
 document.addEventListener('keyup', (e) => {
-    switch(e.code) {
-        case 'ArrowLeft':
-            keys.left = false;
-            break;
-        case 'ArrowRight':
-            keys.right = false;
-            break;
-        case 'ArrowUp':
-        case 'Space':
-            keys.space = false;
-            break;
+    if (gameState === 'playing') {
+        switch(e.code) {
+            case 'ArrowLeft':
+                keys.left = false;
+                break;
+            case 'ArrowRight':
+                keys.right = false;
+                break;
+            case 'ArrowUp':
+            case 'Space':
+                keys.space = false;
+                break;
+        }
     }
 });
 
@@ -181,6 +203,41 @@ function resetPlayer() {
     player.velocityX = 0;
     player.velocityY = 0;
     score = Math.max(0, score - 100);
+    
+    if (score <= 0) {
+        gameOver();
+    }
+}
+
+function startGame() {
+    gameState = 'playing';
+    score = 0;
+    player.x = 50;
+    player.y = 300;
+    player.velocityX = 0;
+    player.velocityY = 0;
+    
+    // Reset enemies
+    enemies.forEach((enemy, index) => {
+        enemy.x = [250, 400, 550][index];
+    });
+    
+    // Reset coins
+    coins.forEach(coin => {
+        coin.collected = false;
+    });
+}
+
+function gameOver() {
+    gameState = 'gameOver';
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+    }
+}
+
+function restartGame() {
+    startGame();
 }
 
 function drawPlayer() {
@@ -252,23 +309,111 @@ function drawBackground() {
     }
 }
 
+function drawStartScreen() {
+    // Blue background like original Mario
+    ctx.fillStyle = '#5C94FC';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Header info (MARIO, WORLD, TIME)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '16px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('MARIO', 50, 30);
+    ctx.fillText('000000', 50, 50);
+    
+    ctx.fillText('WORLD', 300, 30);
+    ctx.fillText('1-1', 320, 50);
+    
+    ctx.fillText('TIME', 500, 30);
+    
+    // Main title box
+    ctx.fillStyle = '#D2691E';
+    ctx.fillRect(150, 80, 500, 120);
+    
+    // Title border
+    ctx.fillStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(150, 80, 500, 120);
+    
+    // Title text
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SUPER', canvas.width / 2, 125);
+    ctx.fillText('MARIO BROS.', canvas.width / 2, 165);
+    
+    // Copyright
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '12px monospace';
+    ctx.fillText('© 1985 NINTENDO', canvas.width / 2, 220);
+    
+    // Menu options
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '20px monospace';
+    ctx.fillText('● 1 PLAYER GAME', canvas.width / 2, 280);
+    ctx.fillText('  2 PLAYER GAME', canvas.width / 2, 310);
+    
+    // Top score
+    ctx.fillText(`TOP- ${highScore.toString().padStart(6, '0')}`, canvas.width / 2, 350);
+    
+    // Ground
+    ctx.fillStyle = '#D2691E';
+    ctx.fillRect(0, 370, canvas.width, 30);
+    
+    // Instructions
+    ctx.fillStyle = '#FFFF00';
+    ctx.font = '16px monospace';
+    ctx.fillText('PRESS SPACE TO START', canvas.width / 2, canvas.height - 50);
+}
+
+function drawGameOverScreen() {
+    drawBackground();
+    
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#FF0000';
+    ctx.font = 'bold 48px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 60);
+    
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '24px monospace';
+    ctx.fillText(`SCORE: ${score}`, canvas.width / 2, canvas.height / 2 - 10);
+    
+    if (score >= highScore) {
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText('NEW HIGH SCORE!', canvas.width / 2, canvas.height / 2 + 20);
+    }
+    
+    ctx.fillStyle = '#00FF00';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText('PRESS SPACE TO RESTART', canvas.width / 2, canvas.height / 2 + 70);
+}
+
 function gameLoop() {
     if (!gameRunning) return;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    drawBackground();
-    drawPlatforms();
-    drawCoins();
-    drawEnemies();
-    drawPlayer();
-    
-    updatePlayer();
-    checkPlatformCollisions();
-    updateEnemies();
-    updateCoins();
-    
-    scoreElement.textContent = score;
+    if (gameState === 'start') {
+        drawStartScreen();
+    } else if (gameState === 'playing') {
+        drawBackground();
+        drawPlatforms();
+        drawCoins();
+        drawEnemies();
+        drawPlayer();
+        
+        updatePlayer();
+        checkPlatformCollisions();
+        updateEnemies();
+        updateCoins();
+        
+        scoreElement.textContent = score;
+    } else if (gameState === 'gameOver') {
+        drawGameOverScreen();
+    }
     
     requestAnimationFrame(gameLoop);
 }
